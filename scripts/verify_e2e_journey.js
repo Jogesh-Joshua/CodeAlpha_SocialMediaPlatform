@@ -284,6 +284,16 @@ async function run() {
   console.log(`\n======================================================`);
   console.log(`  ALL E2E AUDIT CHECKS PASSED: ${passed}/${total}`);
   console.log(`======================================================\n`);
+
+  // Safe cleanup of test accounts
+  try {
+    const { getPool } = require('../src/db/pool');
+    const pool = getPool();
+    await pool.query('DELETE FROM users WHERE username IN ($1, $2)', [userA.username, userB.username]);
+    console.log('✓ Cleaned up test audit accounts (Alice & Bob).\n');
+  } catch {
+    // Non-fatal if running remotely
+  }
 }
 
 run().catch(err => {

@@ -20,11 +20,16 @@ const db = require('../db/queries');
 
 const router = express.Router();
 
+function parsePage(val) {
+  const n = parseInt(val, 10);
+  return Number.isInteger(n) && n > 0 ? n : 1;
+}
+
 // GET /api/posts — global feed
 router.get('/', async (req, res, next) => {
   try {
     const viewerId = req.user?.id || null;
-    const page     = Math.max(1, parseInt(req.query.page || '1', 10));
+    const page     = parsePage(req.query.page);
     const limit    = 20;
     const offset   = (page - 1) * limit;
     const posts = await db.getFeed({ limit, offset, viewerId });
@@ -35,7 +40,7 @@ router.get('/', async (req, res, next) => {
 // GET /api/posts/following — authenticated following feed
 router.get('/following', requireAuth, async (req, res, next) => {
   try {
-    const page   = Math.max(1, parseInt(req.query.page || '1', 10));
+    const page   = parsePage(req.query.page);
     const limit  = 20;
     const offset = (page - 1) * limit;
     const posts = await db.getFollowingFeed({ viewerId: req.user.id, limit, offset });

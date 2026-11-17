@@ -79,5 +79,6 @@ Composite UNIQUE(follower_id, following_id) prevents duplicate follows.
 CHECK(follower_id <> following_id) prevents self-following.
 
 ## Migration Status
-Migration 001 (`001_initial_schema.sql`) is ready.
-Run `node scripts/migrate.js` after configuring DATABASE_URL in `.env`.
+Migration 001 (`001_initial_schema.sql`) is applied and verified in the live Neon PostgreSQL database ledger (`schema_migrations`).
+All 7 tables, 55 constraints, 24 indexes, and 3 triggers are active and verified via `node scripts/verify_db.js`.
+For new environments, run `node scripts/migrate.js` after configuring `DATABASE_URL` in `.env`.

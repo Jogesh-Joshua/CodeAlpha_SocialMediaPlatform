@@ -40,13 +40,18 @@ CodeAlpha_SocialMediaPlatform/
 │   └── db/
 │       ├── pool.js           pg Pool + helpers
 │       └── queries.js        All parameterised SQL queries
+├── api/
+│   └── index.js              Vercel serverless entry point
 ├── db/migrations/
 │   └── 001_initial_schema.sql
 ├── scripts/
-│   └── migrate.js            Migration runner
+│   ├── migrate.js            Migration runner
+│   ├── verify_db.js          Database schema verification utility
+│   └── verify_e2e_journey.js API-level E2E journey test
 ├── tests/
 │   ├── setup.js              Jest env setup
-│   └── health.test.js        API tests (mocked DB)
+│   ├── health.test.js        API unit tests (mocked DB)
+│   └── integration.test.js   Integration tests (live PostgreSQL)
 ├── docs/                     Project documentation
 ├── .env.example              Environment variable template
 ├── vercel.json               Vercel deployment config

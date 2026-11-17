@@ -8,7 +8,7 @@ Nexus connects users through posts, comments, likes, and follows, featuring a cl
 
 ## Features
 
-- **User Authentication:** Registration, login, session persistence via signed `HttpOnly` cookies, duplicate email & username prevention, and salted bcrypt password hashing.
+- **User Authentication:** Registration, login, session persistence via `HttpOnly` cookies carrying a 256-bit cryptographically secure random token (hashed server-side with HMAC-SHA256 and stored in PostgreSQL), duplicate email & username prevention, and salted bcrypt password hashing.
 - **User Profiles:** Unique handle/username, custom display name, bio, account creation date, followers count, following count, profile post list, and profile editing.
 - **Posts & Feed:** Create text posts (up to 500 characters), global chronological feed (newest first) with pagination, author attribution, relative timestamps, and owner-only post deletion.
 - **Following Feed:** Authenticated view filtering posts exclusively from authors you follow.
@@ -66,7 +66,8 @@ CodeAlpha_SocialMediaPlatform/
 │   └── index.html            # SPA application shell
 ├── scripts/
 │   ├── migrate.js            # Idempotent migration runner
-│   └── verify_db.js          # Database schema verification utility
+│   ├── verify_db.js          # Database schema verification utility
+│   └── verify_e2e_journey.js # API-level E2E user journey audit suite
 ├── src/
 │   ├── db/
 │   │   ├── pool.js           # PostgreSQL connection pool configuration
@@ -171,11 +172,11 @@ npm test
 ```
 Runs all 60 tests across authentication, posts, comments, likes, follows, and profiles.
 
-### Full End-to-End User Journey Audit
+### API-Level End-to-End User Journey Suite
 ```bash
 npm run test:e2e
 ```
-Runs 68 automated browser user lifecycle checks against the live server.
+Executes 68 automated API-level assertions via HTTP `fetch()` verifying complete end-to-end user journeys (registration, duplicate checks, session persistence, posting, feeds, comments, likes, follows, profile updates, and logout) against the running server with safe test data cleanup. *(Note: This is an automated HTTP/API journey test, not headless browser/Chromium automation).*
 
 ---
 
@@ -203,6 +204,7 @@ Runs 68 automated browser user lifecycle checks against the live server.
 - `DELETE /api/posts/:id/comments/:cid` — Delete own comment.
 
 ### Users & Profiles
+- `GET /api/users/me` — Retrieve currently authenticated user (alias).
 - `GET /api/users/:username` — Retrieve public profile with follower/following counts.
 - `PUT /api/users/me/profile` — Update own profile (`display_name`, `bio`).
 - `GET /api/users/:username/posts` — Retrieve posts authored by user.
@@ -220,7 +222,10 @@ The application is configured for deployment on **Vercel**:
 - Backend API is served via `api/index.js` using `@vercel/node`.
 - Client-side routes rewrite to `/index.html`.
 
+### Production Deployment URL
+**Live URL:** `[PENDING MANUAL VERCEL DEPLOYMENT]` *(Will be updated once manual deployment to Vercel is executed by the project owner)*
+
 Required Production Environment Variables on Vercel:
 - `NODE_ENV=production`
 - `DATABASE_URL` (Neon PostgreSQL connection string with SSL)
-- `SESSION_SECRET` (Production session secret)
+- `SESSION_SECRET` (Production session secret — at least 32 characters)

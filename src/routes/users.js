@@ -17,6 +17,17 @@ const db = require('../db/queries');
 
 const router = express.Router();
 
+function parsePage(val) {
+  const n = parseInt(val, 10);
+  return Number.isInteger(n) && n > 0 ? n : 1;
+}
+
+// GET /api/users/me — alias for current user info
+router.get('/me', requireAuth, (req, res) => {
+  const { id, username, display_name, email, bio } = req.user;
+  res.json({ user: { id, username, display_name, email, bio } });
+});
+
 // PUT /api/users/me/profile — MUST be before /:username to avoid "me" being treated as a username
 router.put('/me/profile', requireAuth, async (req, res, next) => {
   try {
@@ -55,7 +66,7 @@ router.get('/:username/posts', async (req, res, next) => {
     const user = await db.findUserByUsername(req.params.username);
     if (!user) return res.status(404).json({ error: 'User not found.' });
 
-    const page   = Math.max(1, parseInt(req.query.page || '1', 10));
+    const page   = parsePage(req.query.page);
     const limit  = 20;
     const offset = (page - 1) * limit;
 

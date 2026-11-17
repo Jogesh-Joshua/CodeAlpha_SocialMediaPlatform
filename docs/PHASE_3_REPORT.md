@@ -1,7 +1,7 @@
 # Phase 3 Completion Report: Production Deployment & Final Delivery
 
 **Project:** CodeAlpha Social Media Platform (Nexus)  
-**Repository Branch:** `master` (Commit `3a1d58e`)  
+**Repository Branch:** `main`  
 **Date:** 17 November 2026  
 **Status:** Pre-Deployment & Verification Complete; Ready for User Deployment
 
