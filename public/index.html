@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nexus — Social Platform</title>
+  <meta name="description" content="Nexus — connect, share, follow." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✦</text></svg>" />
+</head>
+<body>
+  <!-- ── Top navigation ── -->
+  <header class="topbar" id="topbar">
+    <div class="topbar__inner">
+      <a href="/" class="topbar__brand" id="nav-home">
+        <span class="brand-icon">✦</span>
+        <span class="brand-name">Nexus</span>
+      </a>
+
+      <nav class="topbar__nav" id="topbar-nav">
+        <a href="/" class="nav-link" data-page="feed" id="nav-feed">Home</a>
+        <a href="/following" class="nav-link" data-page="following" id="nav-following">Following</a>
+      </nav>
+
+      <div class="topbar__actions" id="topbar-actions">
+        <!-- Populated by JS based on auth state -->
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Application shell ── -->
+  <main class="app-shell" id="app-shell">
+    <!-- ── Left sidebar ── -->
+    <aside class="sidebar sidebar--left" id="sidebar-left">
+      <nav class="sidebar__nav" id="sidebar-nav">
+        <!-- Populated by JS -->
+      </nav>
+    </aside>
+
+    <!-- ── Main content area ── -->
+    <section class="content-area" id="content-area">
+      <!-- Pages are rendered here by the router -->
+      <div id="page-root"></div>
+    </section>
+
+    <!-- ── Right sidebar ── -->
+    <aside class="sidebar sidebar--right" id="sidebar-right">
+      <!-- Trends / suggestions panel -->
+    </aside>
+  </main>
+
+  <!-- ── Modal overlay ── -->
+  <div class="modal-overlay hidden" id="modal-overlay" role="dialog" aria-modal="true">
+    <div class="modal" id="modal">
+      <button class="modal__close" id="modal-close" aria-label="Close">✕</button>
+      <div class="modal__content" id="modal-content"></div>
+    </div>
+  </div>
+
+  <!-- ── Toast notifications ── -->
+  <div class="toast-container" id="toast-container" aria-live="polite"></div>
+
+  <!-- ── Scripts ── -->
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/components.js"></script>
+  <script src="/js/pages.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

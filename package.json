@@ -1,0 +1,45 @@
+{
+  "name": "codealpha-socialmedia",
+  "version": "1.0.0",
+  "description": "CodeAlpha Task 2 — Social Media Platform (Node.js + Express + PostgreSQL)",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "build": "echo \"No build step required for Vanilla JS/Express\"",
+    "migrate": "node scripts/migrate.js",
+    "test": "jest --forceExit --detectOpenHandles",
+    "test:ci": "jest --forceExit --detectOpenHandles --ci"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "keywords": [
+    "social-media",
+    "express",
+    "nodejs",
+    "postgresql"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@neon/config": "^1.14.2",
+    "@neon/env": "^2.1.5",
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.10",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.4",
+    "helmet": "^8.3.0",
+    "morgan": "^1.12.1",
+    "pg": "^8.23.1",
+    "uuid": "^14.0.3"
+  },
+  "devDependencies": {
+    "jest": "^30.5.2",
+    "nodemon": "^3.1.14",
+    "supertest": "^7.3.2"
+  }
+}
