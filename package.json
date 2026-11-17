@@ -10,7 +10,8 @@
     "build": "echo \"No build step required for Vanilla JS/Express\"",
     "migrate": "node scripts/migrate.js",
     "test": "jest --forceExit --detectOpenHandles",
-    "test:ci": "jest --forceExit --detectOpenHandles --ci"
+    "test:ci": "jest --forceExit --detectOpenHandles --ci",
+    "test:e2e": "node scripts/verify_e2e_journey.js"
   },
   "engines": {
     "node": ">=20.0.0"

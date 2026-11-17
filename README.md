@@ -105,7 +105,7 @@ CodeAlpha_SocialMediaPlatform/
 
 ### 1. Clone & Install Dependencies
 ```bash
-git clone https://github.com/YourUsername/CodeAlpha_SocialMediaPlatform.git
+git clone https://github.com/Jogesh-Joshua/CodeAlpha_SocialMediaPlatform.git
 cd CodeAlpha_SocialMediaPlatform
 npm install
 ```
@@ -170,6 +170,12 @@ npm test tests/health.test.js
 npm test
 ```
 Runs all 60 tests across authentication, posts, comments, likes, follows, and profiles.
+
+### Full End-to-End User Journey Audit
+```bash
+npm run test:e2e
+```
+Runs 68 automated browser user lifecycle checks against the live server.
 
 ---
 
