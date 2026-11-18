@@ -41,6 +41,10 @@ jest.mock('../src/db/queries', () => ({
   getFollowers         : jest.fn().mockResolvedValue([]),
   getFollowing         : jest.fn().mockResolvedValue([]),
   deleteExpiredSessions: jest.fn(),
+  getExplorePosts      : jest.fn().mockResolvedValue([]),
+  getTrendingHashtags  : jest.fn().mockResolvedValue([]),
+  getRecentActivity    : jest.fn().mockResolvedValue([]),
+  getSuggestedUsers    : jest.fn().mockResolvedValue([]),
 }));
 
 const request = require('supertest');

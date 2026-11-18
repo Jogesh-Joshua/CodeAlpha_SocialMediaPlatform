@@ -1,5 +1,5 @@
 /* ==========================================================
-   pages.js — Page renderers for each route
+   pages.js — Page renderers for Nexus routes
    ========================================================== */
 'use strict';
 
@@ -8,49 +8,7 @@ const Pages = (() => {
   /* ── Helpers ─────────────────────────────────────────────── */
   function getRoot() { return document.getElementById('page-root'); }
 
-  function renderFeedPage(posts, user, loadMore, { onNavigate } = {}) {
-    const root = getRoot();
-    root.innerHTML = '';
-
-    const header = el('h2', 'page-header', 'Home');
-    root.appendChild(header);
-
-    // Composer
-    const composer = Composer(user, {
-      onPost: (post) => {
-        const card = PostCard(post, user, {
-          onNavigate,
-          onComment: (p) => onNavigate(`post:${p.id}`),
-        });
-        feed.insertBefore(card, feed.firstChild);
-      },
-    });
-    if (composer) root.appendChild(composer);
-
-    const feed = el('div', 'feed');
-    root.appendChild(feed);
-
-    if (!posts.length) {
-      feed.appendChild(EmptyState('📭', 'Nothing here yet', 'Be the first to post something!'));
-    } else {
-      posts.forEach(post => {
-        feed.appendChild(PostCard(post, user, {
-          onNavigate,
-          onComment: (p) => onNavigate(`post:${p.id}`),
-        }));
-      });
-    }
-
-    if (loadMore) {
-      const lmWrap = el('div', 'load-more');
-      const lmBtn  = el('button', 'btn btn-ghost', 'Load more');
-      lmBtn.addEventListener('click', loadMore);
-      lmWrap.appendChild(lmBtn);
-      root.appendChild(lmWrap);
-    }
-  }
-
-  /* ── Feed page ───────────────────────────────────────────── */
+  /* ── Feed page (For You) ─────────────────────────────────── */
   async function feed(onNavigate) {
     const root = getRoot();
     root.innerHTML = '';
@@ -58,27 +16,93 @@ const Pages = (() => {
 
     const user = Auth.getUser();
     let page = 1;
-    let allPosts = [];
 
     try {
-      const { posts } = await API.getFeed(page);
-      allPosts = posts;
-      const hasMore = posts.length === 20;
+      const [feedRes, suggRes] = await Promise.allSettled([
+        API.getFeed(page),
+        API.getSuggestions(),
+      ]);
+      const posts = feedRes.status === 'fulfilled' ? (feedRes.value.posts || []) : [];
+      const suggestions = suggRes.status === 'fulfilled' ? (suggRes.value.suggestions || []) : [];
+      root.innerHTML = '';
 
-      const loadMore = hasMore ? async () => {
-        page++;
-        try {
-          const { posts: more } = await API.getFeed(page);
-          more.forEach(p => {
-            root.querySelector('.feed').appendChild(
-              PostCard(p, user, { onNavigate, onComment: (pp) => onNavigate(`post:${pp.id}`) })
-            );
-          });
-          if (more.length < 20) root.querySelector('.load-more')?.remove();
-        } catch (err) { toast(err.message, 'error'); }
-      } : null;
+      // Guest Hero Banner if not logged in
+      if (!user) {
+        root.appendChild(HeroWelcomeBanner({ onNavigate }));
+      }
 
-      renderFeedPage(allPosts, user, loadMore, { onNavigate });
+      // Creator Discovery Avatar Strip
+      if (suggestions && suggestions.length > 0) {
+        const strip = AvatarStrip(suggestions, onNavigate);
+        if (strip) root.appendChild(strip);
+      }
+
+      // Top Feed Tabs: [ For You ] [ Following ]
+      const tabContainer = el('div', 'feed-tabs-container');
+      tabContainer.innerHTML = `
+        <div class="feed-tabs">
+          <button class="feed-tab active" id="tab-for-you">For You</button>
+          <button class="feed-tab" id="tab-following">Following</button>
+        </div>
+      `;
+      tabContainer.querySelector('#tab-following').addEventListener('click', () => {
+        onNavigate('following');
+      });
+      root.appendChild(tabContainer);
+
+      // Composer (when logged in)
+      if (user) {
+        const composer = Composer(user, {
+          onPost: (newPost) => {
+            const feedEl = root.querySelector('.feed');
+            const emptyEl = feedEl.querySelector('.empty-state');
+            if (emptyEl) emptyEl.remove();
+
+            const card = PostCard(newPost, user, {
+              onNavigate,
+              onComment: (p) => onNavigate(`post:${p.id}`),
+            });
+            feedEl.insertBefore(card, feedEl.firstChild);
+          },
+        });
+        if (composer) root.appendChild(composer);
+      }
+
+      // Feed container
+      const feedEl = el('div', 'feed');
+      root.appendChild(feedEl);
+
+      if (!posts.length) {
+        feedEl.appendChild(EmptyState('📭', 'Nothing in your feed yet', 'Be the first to share something with the community!'));
+      } else {
+        posts.forEach(post => {
+          feedEl.appendChild(PostCard(post, user, {
+            onNavigate,
+            onComment: (p) => onNavigate(`post:${p.id}`),
+          }));
+        });
+      }
+
+      // Load More pagination
+      if (posts.length === 20) {
+        const lmWrap = el('div', 'load-more');
+        const lmBtn  = el('button', 'btn btn-ghost', 'Load more posts');
+        lmBtn.addEventListener('click', async () => {
+          page++;
+          try {
+            const { posts: more } = await API.getFeed(page);
+            more.forEach(p => {
+              feedEl.appendChild(
+                PostCard(p, user, { onNavigate, onComment: (pp) => onNavigate(`post:${pp.id}`) })
+              );
+            });
+            if (more.length < 20) lmWrap.remove();
+          } catch (err) { toast(err.message, 'error'); }
+        });
+        lmWrap.appendChild(lmBtn);
+        root.appendChild(lmWrap);
+      }
+
     } catch (err) {
       root.innerHTML = `<div class="error-state">Failed to load feed: ${escapeHtml(err.message)}</div>`;
     }
@@ -94,6 +118,10 @@ const Pages = (() => {
       root.innerHTML = '';
       const div = el('div', 'auth-page');
       div.appendChild(EmptyState('🔒', 'Sign in to see your following feed', 'Follow people to see their posts here.'));
+      const loginBtn = el('button', 'btn btn-primary', 'Log In to Nexus');
+      loginBtn.style.marginTop = '1rem';
+      loginBtn.addEventListener('click', () => onNavigate('login'));
+      div.querySelector('.empty-state')?.appendChild(loginBtn);
       root.appendChild(div);
       return;
     }
@@ -105,17 +133,28 @@ const Pages = (() => {
       const { posts } = await API.getFollowingFeed(page);
 
       root.innerHTML = '';
-      const header = el('h2', 'page-header', 'Following');
-      root.appendChild(header);
 
-      const feed = el('div', 'feed');
-      root.appendChild(feed);
+      // Feed Tabs
+      const tabContainer = el('div', 'feed-tabs-container');
+      tabContainer.innerHTML = `
+        <div class="feed-tabs">
+          <button class="feed-tab" id="tab-for-you">For You</button>
+          <button class="feed-tab active" id="tab-following">Following</button>
+        </div>
+      `;
+      tabContainer.querySelector('#tab-for-you').addEventListener('click', () => {
+        onNavigate('feed');
+      });
+      root.appendChild(tabContainer);
+
+      const feedEl = el('div', 'feed');
+      root.appendChild(feedEl);
 
       if (!posts.length) {
-        feed.appendChild(EmptyState('👥', 'No posts yet', 'Follow more people to see their posts here.'));
+        feedEl.appendChild(EmptyState('👥', 'No posts from people you follow yet', 'Follow more creators to see their updates here! Check out the Explore page or Discover People in the right sidebar.'));
       } else {
         posts.forEach(post => {
-          feed.appendChild(PostCard(post, user, {
+          feedEl.appendChild(PostCard(post, user, {
             onNavigate,
             onComment: (p) => onNavigate(`post:${p.id}`),
           }));
@@ -127,7 +166,7 @@ const Pages = (() => {
           lmBtn.addEventListener('click', async () => {
             page++;
             const { posts: more } = await API.getFollowingFeed(page);
-            more.forEach(p => feed.appendChild(PostCard(p, user, { onNavigate })));
+            more.forEach(p => feedEl.appendChild(PostCard(p, user, { onNavigate })));
             if (more.length < 20) lmWrap.remove();
           });
           lmWrap.appendChild(lmBtn);
@@ -136,6 +175,150 @@ const Pages = (() => {
       }
     } catch (err) {
       root.innerHTML = `<div class="error-state">${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  /* ── Explore Page ────────────────────────────────────────── */
+  async function explore(onNavigate, initialSearch = '') {
+    const root = getRoot();
+    root.innerHTML = '';
+    root.appendChild(LoadingSpinner());
+
+    const user = Auth.getUser();
+    let currentFilter = ''; // '' (all), 'photos'
+    let currentQuery = initialSearch || '';
+
+    async function loadExploreContent(container, q, filter) {
+      container.innerHTML = '';
+      container.appendChild(LoadingSpinner());
+
+      try {
+        const { posts } = await API.getExplore(1, filter, q);
+        container.innerHTML = '';
+
+        if (!posts || !posts.length) {
+          container.appendChild(EmptyState(
+            '🔍',
+            'No matching posts found',
+            q ? `No results for "${escapeHtml(q)}". Try a different search term or hashtag.` : 'Be the first to share content in this topic!'
+          ));
+          return;
+        }
+
+        // If 'photos' filter is selected, render a modern photo grid
+        if (filter === 'photos') {
+          const grid = el('div', 'explore-photo-grid');
+          posts.forEach(post => {
+            if (!post.image_url) return;
+            const tile = el('div', 'photo-tile');
+            tile.innerHTML = `
+              <img src="${escapeHtml(post.image_url)}" class="photo-tile__img" alt="Photo post" loading="lazy" />
+              <div class="photo-tile__overlay">
+                <div class="photo-tile__meta">
+                  <span class="photo-tile__author">@${escapeHtml(post.username)}</span>
+                  <div class="photo-tile__stats">
+                    <span>❤️ ${post.likes_count || 0}</span>
+                    <span>💬 ${post.comments_count || 0}</span>
+                  </div>
+                </div>
+                <p class="photo-tile__snippet">${escapeHtml((post.content || '').slice(0, 80))}</p>
+              </div>
+            `;
+            tile.addEventListener('click', () => {
+              onNavigate(`post:${post.id}`);
+            });
+            grid.appendChild(tile);
+          });
+          container.appendChild(grid);
+        } else {
+          // Standard explore feed
+          const feedEl = el('div', 'feed');
+          posts.forEach(post => {
+            feedEl.appendChild(PostCard(post, user, {
+              onNavigate,
+              onComment: (p) => onNavigate(`post:${p.id}`),
+            }));
+          });
+          container.appendChild(feedEl);
+        }
+      } catch (err) {
+        container.innerHTML = `<div class="error-state">Failed to load explore content: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    try {
+      root.innerHTML = '';
+
+      // Explore Page Header
+      const header = el('div', 'explore-header');
+      header.innerHTML = `
+        <h2 class="page-header" style="border:none;margin-bottom:var(--space-3)">Explore</h2>
+        
+        <!-- Search bar -->
+        <div class="explore-search-bar">
+          <span class="explore-search-icon">🔍</span>
+          <input type="text" class="explore-search-input" id="explore-search-input"
+                 placeholder="Search posts, hashtags (#webdev), or people..."
+                 value="${escapeHtml(currentQuery)}" />
+          ${currentQuery ? `<button class="explore-search-clear" id="explore-search-clear">✕</button>` : ''}
+        </div>
+
+        <!-- Filter tabs -->
+        <div class="explore-filters">
+          <button class="filter-chip ${currentFilter === '' ? 'active' : ''}" data-filter="">All Posts</button>
+          <button class="filter-chip ${currentFilter === 'photos' ? 'active' : ''}" data-filter="photos">📸 Photos</button>
+        </div>
+      `;
+
+      root.appendChild(header);
+
+      const contentContainer = el('div', 'explore-content');
+      root.appendChild(contentContainer);
+
+      const searchInput = header.querySelector('#explore-search-input');
+      const clearBtn   = header.querySelector('#explore-search-clear');
+
+      // Debounced search
+      let debounceTimer = null;
+      searchInput.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        currentQuery = searchInput.value.trim();
+        debounceTimer = setTimeout(() => {
+          loadExploreContent(contentContainer, currentQuery, currentFilter);
+        }, 300);
+      });
+
+      searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          clearTimeout(debounceTimer);
+          currentQuery = searchInput.value.trim();
+          loadExploreContent(contentContainer, currentQuery, currentFilter);
+        }
+      });
+
+      clearBtn?.addEventListener('click', () => {
+        searchInput.value = '';
+        currentQuery = '';
+        clearBtn.remove();
+        loadExploreContent(contentContainer, '', currentFilter);
+      });
+
+      // Filter chips click
+      header.querySelectorAll('.filter-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          header.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+          chip.classList.add('active');
+          currentFilter = chip.dataset.filter;
+          loadExploreContent(contentContainer, currentQuery, currentFilter);
+        });
+      });
+
+      // Initial load
+      await loadExploreContent(contentContainer, currentQuery, currentFilter);
+
+    } catch (err) {
+      root.innerHTML = `<div class="error-state">Failed to initialize explore: ${escapeHtml(err.message)}</div>`;
     }
   }
 
@@ -151,32 +334,40 @@ const Pages = (() => {
       const { post, comments } = await API.getPost(postId);
       root.innerHTML = '';
 
-      const backBtn = el('button', 'btn btn-ghost btn-sm', '← Back');
-      backBtn.style.marginBottom = '1rem';
-      backBtn.addEventListener('click', () => history.back());
+      const backBtn = el('button', 'btn btn-ghost btn-sm', '← Back to Feed');
+      backBtn.style.marginBottom = '1.25rem';
+      backBtn.addEventListener('click', () => {
+        if (window.history.length > 1) {
+          history.back();
+        } else {
+          onNavigate('feed');
+        }
+      });
       root.appendChild(backBtn);
 
       const card = PostCard(post, user, {
         onNavigate,
         onLike: () => {},
-        onDelete: () => { toast('Post deleted.', 'success'); onNavigate('feed'); },
+        onDelete: () => {
+          toast('Post deleted.', 'success');
+          onNavigate('feed');
+        },
       });
       root.appendChild(card);
 
       // Comments section
       const section = el('div', 'comments-section');
-      const title = el('h3', '', `Comments (${comments.length})`);
-      title.style.cssText = 'font-size:var(--text-sm);font-weight:600;margin-bottom:1rem;color:var(--color-text-muted)';
+      const title = el('h3', 'comments-title', `Comments (${comments.length})`);
       section.appendChild(title);
 
       const commentList = el('div', 'comment-list');
       comments.forEach(c => {
         commentList.appendChild(CommentItem(c, user, {
           onDelete: async (comment) => {
-            if (!confirm('Delete comment?')) return;
             try {
               await API.deleteComment(postId, comment.id);
-              commentList.removeChild(commentList.querySelector(`[data-cid="${comment.id}"]`)?.closest('.comment-item') || document.createElement('span'));
+              commentList.querySelector(`[data-cid="${comment.id}"]`)?.remove();
+              title.textContent = `Comments (${commentList.children.length})`;
               toast('Comment deleted.', 'success');
             } catch (err) { toast(err.message, 'error'); }
           },
@@ -189,10 +380,10 @@ const Pages = (() => {
         const form = el('div', 'comment-form');
         const input = el('input', 'comment-form__input');
         input.type = 'text';
-        input.placeholder = 'Write a comment…';
+        input.placeholder = 'Write a thoughtful comment…';
         input.maxLength = 300;
 
-        const btn = el('button', 'btn btn-primary btn-sm', 'Post');
+        const btn = el('button', 'btn btn-primary btn-sm', 'Reply');
         btn.addEventListener('click', async () => {
           const content = input.value.trim();
           if (!content) return;
@@ -203,10 +394,12 @@ const Pages = (() => {
             commentList.appendChild(CommentItem(comment, user, {
               onDelete: async (c) => {
                 await API.deleteComment(postId, c.id);
-                commentList.querySelector(`[data-cid]`)?.closest('.comment-item')?.remove();
+                commentList.querySelector(`[data-cid="${c.id}"]`)?.remove();
+                title.textContent = `Comments (${commentList.children.length})`;
               },
             }));
             title.textContent = `Comments (${commentList.children.length})`;
+            toast('Comment added!', 'success');
           } catch (err) { toast(err.message, 'error'); }
           finally { btn.disabled = false; }
         });
@@ -217,6 +410,16 @@ const Pages = (() => {
 
         form.append(input, btn);
         section.appendChild(form);
+      } else {
+        const prompt = el('div', 'comment-login-prompt');
+        prompt.innerHTML = `
+          <span>Join the conversation. <a href="#" id="comment-login-link">Sign in</a> to leave a comment.</span>
+        `;
+        prompt.querySelector('#comment-login-link')?.addEventListener('click', (e) => {
+          e.preventDefault();
+          onNavigate('login');
+        });
+        section.appendChild(prompt);
       }
 
       card.appendChild(section);
@@ -262,14 +465,20 @@ const Pages = (() => {
                 <span class="profile-stat__num">${p.following_count}</span>
                 <span class="profile-stat__label">Following</span>
               </div>
+              <div class="profile-stat">
+                <span class="profile-stat__num">${posts.length}</span>
+                <span class="profile-stat__label">Posts</span>
+              </div>
             </div>
-            <div class="profile-joined">Joined ${new Date(p.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</div>
+            <div class="profile-joined">📅 Joined ${new Date(p.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</div>
           </div>
           <div class="profile-actions"></div>
         </div>
       `;
 
-      header.querySelector('.profile-avatar-slot').appendChild(Avatar(p.display_name, 'lg'));
+      header.querySelector('.profile-avatar-slot').appendChild(
+        Avatar(p.display_name, 'lg', null, p.username)
+      );
 
       const actionsDiv = header.querySelector('.profile-actions');
 
@@ -296,6 +505,7 @@ const Pages = (() => {
               followBtn.textContent = 'Follow';
               const stat = header.querySelectorAll('.profile-stat__num')[0];
               stat.textContent = Math.max(0, parseInt(stat.textContent) - 1);
+              toast(`Unfollowed @${username}`, 'info');
             } else {
               await API.followUser(username);
               isFollowing = true;
@@ -303,36 +513,41 @@ const Pages = (() => {
               followBtn.textContent = 'Following';
               const stat = header.querySelectorAll('.profile-stat__num')[0];
               stat.textContent = parseInt(stat.textContent) + 1;
+              toast(`Following @${username}!`, 'success');
             }
           } catch (err) { toast(err.message, 'error'); }
         });
+        actionsDiv.appendChild(followBtn);
+      } else {
+        const followBtn = el('button', 'btn btn-primary btn-sm', 'Follow');
+        followBtn.addEventListener('click', showLoginPrompt);
         actionsDiv.appendChild(followBtn);
       }
 
       root.appendChild(header);
 
-      // Posts section
+      // User's Posts section
       const postsHeader = el('h3', 'page-header', 'Posts');
       root.appendChild(postsHeader);
 
-      const feed = el('div', 'feed');
+      const feedEl = el('div', 'feed');
       if (!posts.length) {
-        feed.appendChild(EmptyState('✏️', 'No posts yet', isOwnProfile ? 'Share your first post!' : `${p.display_name} hasn't posted yet.`));
+        feedEl.appendChild(EmptyState('✏️', 'No posts yet', isOwnProfile ? 'Share your first post with the community!' : `${p.display_name} hasn't posted yet.`));
       } else {
         posts.forEach(post => {
-          feed.appendChild(PostCard(post, user, {
+          feedEl.appendChild(PostCard(post, user, {
             onNavigate,
             onComment: (pp) => onNavigate(`post:${pp.id}`),
-            onDelete: (id) => { feed.querySelector(`[data-post-id="${id}"]`)?.remove(); },
+            onDelete: (id) => { feedEl.querySelector(`[data-post-id="${id}"]`)?.remove(); },
           }));
         });
       }
-      root.appendChild(feed);
+      root.appendChild(feedEl);
 
     } catch (err) {
       if (err.status === 404) {
         root.innerHTML = '';
-        root.appendChild(EmptyState('🔍', 'User not found', `@${username} doesn't exist.`));
+        root.appendChild(EmptyState('🔍', 'User not found', `@${username} doesn't exist on Nexus.`));
       } else {
         root.innerHTML = `<div class="error-state">Failed to load profile: ${escapeHtml(err.message)}</div>`;
       }
@@ -351,7 +566,7 @@ const Pages = (() => {
         </div>
         <div class="form-group">
           <label class="form-label" for="edit-bio">Bio</label>
-          <textarea class="form-textarea" id="edit-bio" maxlength="300" rows="3">${escapeHtml(user.bio || '')}</textarea>
+          <textarea class="form-textarea" id="edit-bio" maxlength="300" rows="3" placeholder="Tell the community about yourself...">${escapeHtml(user.bio || '')}</textarea>
         </div>
         <div id="edit-error" class="form-error hidden"></div>
         <button class="btn btn-primary btn-lg" id="edit-save-btn" style="width:100%">Save changes</button>
@@ -366,7 +581,11 @@ const Pages = (() => {
       const errEl = document.getElementById('edit-error');
       errEl.classList.add('hidden');
 
-      if (!display_name) { errEl.textContent = 'Display name is required.'; errEl.classList.remove('hidden'); return; }
+      if (!display_name) {
+        errEl.textContent = 'Display name is required.';
+        errEl.classList.remove('hidden');
+        return;
+      }
 
       try {
         const updated = await Auth.updateProfile(display_name, bio);
@@ -389,14 +608,14 @@ const Pages = (() => {
     page.innerHTML = `
       <div class="auth-card">
         <div style="text-align:center;margin-bottom:var(--space-6)">
-          <span style="font-size:2.5rem">✦</span>
+          <span style="font-size:2.5rem;color:var(--color-accent)">✦</span>
           <h1 class="auth-card__title" style="margin-top:var(--space-2)">Welcome back</h1>
           <p class="auth-card__subtitle">Sign in to your Nexus account</p>
         </div>
         <form class="auth-form" id="login-form" novalidate>
           <div class="form-group">
             <label class="form-label" for="login-login">Username or email</label>
-            <input class="form-input" id="login-login" type="text" autocomplete="username" placeholder="you@example.com" required />
+            <input class="form-input" id="login-login" type="text" autocomplete="username" placeholder="you@example.com or username" required />
           </div>
           <div class="form-group">
             <label class="form-label" for="login-password">Password</label>
@@ -406,7 +625,7 @@ const Pages = (() => {
           <button class="btn btn-primary btn-lg" type="submit" style="width:100%">Sign in</button>
         </form>
         <div class="auth-footer">
-          Don't have an account? <a href="#" id="goto-register">Sign up</a>
+          Don't have an account? <a href="#" id="goto-register">Create one free</a>
         </div>
       </div>
     `;
@@ -418,7 +637,7 @@ const Pages = (() => {
 
     document.getElementById('login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const login  = document.getElementById('login-login').value.trim();
+      const loginVal  = document.getElementById('login-login').value.trim();
       const password = document.getElementById('login-password').value;
       const errEl = document.getElementById('login-error');
       errEl.classList.add('hidden');
@@ -427,8 +646,8 @@ const Pages = (() => {
       btn.disabled = true; btn.textContent = 'Signing in…';
 
       try {
-        await Auth.login(login, password);
-        toast('Welcome back!', 'success');
+        await Auth.login(loginVal, password);
+        toast('Welcome back to Nexus! ✨', 'success');
         onNavigate('feed');
       } catch (err) {
         errEl.textContent = err.message;
@@ -448,9 +667,9 @@ const Pages = (() => {
     page.innerHTML = `
       <div class="auth-card">
         <div style="text-align:center;margin-bottom:var(--space-6)">
-          <span style="font-size:2.5rem">✦</span>
+          <span style="font-size:2.5rem;color:var(--color-accent)">✦</span>
           <h1 class="auth-card__title" style="margin-top:var(--space-2)">Join Nexus</h1>
-          <p class="auth-card__subtitle">Create your account</p>
+          <p class="auth-card__subtitle">Create your personal creator account</p>
         </div>
         <form class="auth-form" id="register-form" novalidate>
           <div class="form-group">
@@ -460,7 +679,7 @@ const Pages = (() => {
           </div>
           <div class="form-group">
             <label class="form-label" for="reg-display">Display name</label>
-            <input class="form-input" id="reg-display" type="text" placeholder="Your Name" maxlength="64" />
+            <input class="form-input" id="reg-display" type="text" placeholder="Your Name or Studio" maxlength="64" />
           </div>
           <div class="form-group">
             <label class="form-label" for="reg-email">Email</label>
@@ -516,5 +735,5 @@ const Pages = (() => {
     root.appendChild(EmptyState('🔍', 'Page not found', 'The page you\'re looking for doesn\'t exist.'));
   }
 
-  return { feed, following, postDetail, profile, login, register, notFound };
+  return { feed, following, explore, postDetail, profile, login, register, notFound };
 })();

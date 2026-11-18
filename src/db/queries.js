@@ -108,12 +108,12 @@ async function deleteExpiredSessions() {
 
 // ── Posts ──────────────────────────────────────────────────
 
-async function createPost({ authorId, content }) {
+async function createPost({ authorId, content, imageUrl = null }) {
   const { rows } = await query(
-    `INSERT INTO posts (author_id, content)
-     VALUES ($1, $2)
-     RETURNING id, author_id, content, created_at`,
-    [authorId, content]
+    `INSERT INTO posts (author_id, content, image_url)
+     VALUES ($1, $2, $3)
+     RETURNING id, author_id, content, image_url, created_at`,
+    [authorId, content, imageUrl || null]
   );
   return rows[0];
 }
@@ -121,7 +121,7 @@ async function createPost({ authorId, content }) {
 async function getPostById(postId, viewerId = null) {
   const { rows } = await query(
     `SELECT
-       p.id, p.content, p.created_at, p.updated_at,
+       p.id, p.content, p.image_url, p.created_at, p.updated_at,
        u.id AS author_id, u.username, u.display_name,
        COUNT(DISTINCT l.user_id)  AS likes_count,
        COUNT(DISTINCT c.id)       AS comments_count,
@@ -143,7 +143,7 @@ async function getPostById(postId, viewerId = null) {
 async function getFeed({ limit = 20, offset = 0, viewerId = null }) {
   const { rows } = await query(
     `SELECT
-       p.id, p.content, p.created_at,
+       p.id, p.content, p.image_url, p.created_at,
        u.id AS author_id, u.username, u.display_name,
        COUNT(DISTINCT l.user_id)  AS likes_count,
        COUNT(DISTINCT c.id)       AS comments_count,
@@ -166,7 +166,7 @@ async function getFeed({ limit = 20, offset = 0, viewerId = null }) {
 async function getFollowingFeed({ viewerId, limit = 20, offset = 0 }) {
   const { rows } = await query(
     `SELECT
-       p.id, p.content, p.created_at,
+       p.id, p.content, p.image_url, p.created_at,
        u.id AS author_id, u.username, u.display_name,
        COUNT(DISTINCT l.user_id)  AS likes_count,
        COUNT(DISTINCT c.id)       AS comments_count,
@@ -187,7 +187,7 @@ async function getFollowingFeed({ viewerId, limit = 20, offset = 0 }) {
 async function getUserPosts({ authorId, limit = 20, offset = 0, viewerId = null }) {
   const { rows } = await query(
     `SELECT
-       p.id, p.content, p.created_at,
+       p.id, p.content, p.image_url, p.created_at,
        u.id AS author_id, u.username, u.display_name,
        COUNT(DISTINCT l.user_id)  AS likes_count,
        COUNT(DISTINCT c.id)       AS comments_count,
@@ -329,14 +329,121 @@ async function getFollowing(userId) {
   return rows;
 }
 
+async function getSuggestedUsers({ viewerId = null, limit = 5 }) {
+  const { rows } = await query(
+    `SELECT
+       u.id, u.username, u.display_name, u.bio,
+       COUNT(DISTINCT f.follower_id) AS followers_count,
+       CASE WHEN $1::uuid IS NOT NULL
+            THEN EXISTS (SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = u.id)
+            ELSE false
+       END AS is_following
+     FROM users u
+     LEFT JOIN follows f ON f.following_id = u.id
+     WHERE ($1::uuid IS NULL OR u.id != $1)
+       AND ($1::uuid IS NULL OR NOT EXISTS (
+         SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = u.id
+       ))
+     GROUP BY u.id
+     ORDER BY followers_count DESC, u.created_at DESC
+     LIMIT $2`,
+    [viewerId, limit]
+  );
+  return rows;
+}
+
+async function getExplorePosts({ limit = 30, offset = 0, viewerId = null, filter = null, search = null }) {
+  const whereClauses = [];
+  const params = [];
+  let idx = 1;
+
+  if (filter === 'photos') {
+    whereClauses.push('p.image_url IS NOT NULL');
+  }
+
+  if (search && search.trim()) {
+    params.push(`%${search.trim()}%`);
+    whereClauses.push(`(p.content ILIKE $${idx} OR u.username ILIKE $${idx} OR u.display_name ILIKE $${idx})`);
+    idx++;
+  }
+
+  params.push(viewerId);
+  const viewerParamIdx = idx++;
+
+  const whereStr = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+  params.push(limit);
+  const limitIdx = idx++;
+  params.push(offset);
+  const offsetIdx = idx++;
+
+  const sql = `
+    SELECT
+      p.id, p.content, p.image_url, p.created_at,
+      u.id AS author_id, u.username, u.display_name,
+      COUNT(DISTINCT l.user_id)  AS likes_count,
+      COUNT(DISTINCT c.id)       AS comments_count,
+      CASE WHEN $${viewerParamIdx}::uuid IS NOT NULL
+           THEN EXISTS (SELECT 1 FROM likes WHERE post_id = p.id AND user_id = $${viewerParamIdx})
+           ELSE false
+      END AS is_liked
+    FROM posts p
+    JOIN users u ON u.id = p.author_id
+    LEFT JOIN likes    l ON l.post_id = p.id
+    LEFT JOIN comments c ON c.post_id = p.id
+    ${whereStr}
+    GROUP BY p.id, u.id
+    ORDER BY (COUNT(DISTINCT l.user_id) * 2 + COUNT(DISTINCT c.id)) DESC, p.created_at DESC
+    LIMIT $${limitIdx} OFFSET $${offsetIdx}`;
+
+  const { rows } = await query(sql, params);
+  return rows;
+}
+
+async function getRecentActivity({ limit = 5 }) {
+  const { rows } = await query(
+    `SELECT
+       c.id, c.content, c.created_at,
+       u.username, u.display_name,
+       p.id AS post_id, p.content AS post_content
+     FROM comments c
+     JOIN users u ON u.id = c.author_id
+     JOIN posts p ON p.id = c.post_id
+     ORDER BY c.created_at DESC
+     LIMIT $1`,
+    [limit]
+  );
+  return rows;
+}
+
+async function getTrendingHashtags({ limit = 6 }) {
+  const { rows } = await query(
+    `SELECT p.content FROM posts p ORDER BY p.created_at DESC LIMIT 60`
+  );
+  const tagCounts = {};
+  for (const row of rows) {
+    const tags = row.content.match(/#[a-zA-Z0-9_]+/g) || [];
+    for (const t of tags) {
+      const lower = t.toLowerCase();
+      tagCounts[lower] = (tagCounts[lower] || 0) + 1;
+    }
+  }
+  const sorted = Object.entries(tagCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([tag, count]) => ({ tag, count }));
+  return sorted;
+}
+
 module.exports = {
   // Users
   createUser, findUserById, findUserByUsername, findUserByEmail,
-  updateProfile, getUserProfile,
+  updateProfile, getUserProfile, getSuggestedUsers,
   // Sessions
   createSession, findSession, deleteSession, deleteExpiredSessions,
   // Posts
   createPost, getPostById, getFeed, getFollowingFeed, getUserPosts, deletePost,
+  getExplorePosts, getRecentActivity, getTrendingHashtags,
   // Comments
   createComment, getComments, deleteComment,
   // Likes

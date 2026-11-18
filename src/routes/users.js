@@ -28,6 +28,15 @@ router.get('/me', requireAuth, (req, res) => {
   res.json({ user: { id, username, display_name, email, bio } });
 });
 
+// GET /api/users/suggestions — discover people suggestions
+router.get('/suggestions', async (req, res, next) => {
+  try {
+    const viewerId = req.user?.id || null;
+    const suggestions = await db.getSuggestedUsers({ viewerId, limit: 5 });
+    res.json({ suggestions });
+  } catch (err) { next(err); }
+});
+
 // PUT /api/users/me/profile — MUST be before /:username to avoid "me" being treated as a username
 router.put('/me/profile', requireAuth, async (req, res, next) => {
   try {

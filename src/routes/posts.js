@@ -15,7 +15,7 @@
 
 const express = require('express');
 const { requireAuth } = require('../middleware/auth');
-const { validatePostContent, validateCommentContent } = require('../middleware/validate');
+const { validatePostContent, validateCommentContent, validateImageUrl } = require('../middleware/validate');
 const db = require('../db/queries');
 
 const router = express.Router();
@@ -24,6 +24,36 @@ function parsePage(val) {
   const n = parseInt(val, 10);
   return Number.isInteger(n) && n > 0 ? n : 1;
 }
+
+// GET /api/posts/explore — explore & discovery feed with search and filter
+router.get('/explore', async (req, res, next) => {
+  try {
+    const viewerId = req.user?.id || null;
+    const page     = parsePage(req.query.page);
+    const limit    = 24;
+    const offset   = (page - 1) * limit;
+    const filter   = req.query.filter || null; // e.g. 'photos'
+    const search   = req.query.q || null;
+    const posts    = await db.getExplorePosts({ limit, offset, viewerId, filter, search });
+    res.json({ posts, page, limit });
+  } catch (err) { next(err); }
+});
+
+// GET /api/posts/trending — trending hashtags
+router.get('/trending', async (req, res, next) => {
+  try {
+    const topics = await db.getTrendingHashtags({ limit: 6 });
+    res.json({ topics });
+  } catch (err) { next(err); }
+});
+
+// GET /api/posts/activity — recent community activity
+router.get('/activity', async (req, res, next) => {
+  try {
+    const activity = await db.getRecentActivity({ limit: 5 });
+    res.json({ activity });
+  } catch (err) { next(err); }
+});
 
 // GET /api/posts — global feed
 router.get('/', async (req, res, next) => {
@@ -51,11 +81,18 @@ router.get('/following', requireAuth, async (req, res, next) => {
 // POST /api/posts — create post
 router.post('/', requireAuth, async (req, res, next) => {
   try {
-    const { content } = req.body || {};
+    const { content, image_url } = req.body || {};
     const err = validatePostContent(content);
     if (err) return res.status(400).json({ error: err });
 
-    const post = await db.createPost({ authorId: req.user.id, content: content.trim() });
+    const imgErr = validateImageUrl(image_url);
+    if (imgErr) return res.status(400).json({ error: imgErr });
+
+    const post = await db.createPost({
+      authorId: req.user.id,
+      content : content.trim(),
+      imageUrl: image_url ? image_url.trim() : null,
+    });
     // Return enriched data
     const full = await db.getPostById(post.id, req.user.id);
     res.status(201).json({ post: full });

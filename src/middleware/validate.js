@@ -57,6 +57,18 @@ function validateBio(bio) {
   return null;
 }
 
+function validateImageUrl(url) {
+  if (!url) return null;
+  if (typeof url !== 'string') return 'Invalid image URL format.';
+  const trimmed = url.trim();
+  if (trimmed.length === 0) return null;
+  if (trimmed.length > 2048) return 'Image URL cannot exceed 2048 characters.';
+  if (!trimmed.startsWith('/images/') && !/^https:\/\/[^\s$.?#].[^\s]*$/i.test(trimmed)) {
+    return 'Image URL must be a valid secure URL (https://) or local path (/images/...).';
+  }
+  return null;
+}
+
 module.exports = {
   validateUsername,
   validateEmail,
@@ -65,4 +77,5 @@ module.exports = {
   validateCommentContent,
   validateDisplayName,
   validateBio,
+  validateImageUrl,
 };

@@ -36,6 +36,9 @@ const API = (() => {
     // Posts
     getFeed        : (page = 1)       => request('GET', `/posts?page=${page}`),
     getFollowingFeed: (page = 1)      => request('GET', `/posts/following?page=${page}`),
+    getExplore     : (page = 1, filter = '', q = '') => request('GET', `/posts/explore?page=${page}${filter ? '&filter=' + encodeURIComponent(filter) : ''}${q ? '&q=' + encodeURIComponent(q) : ''}`),
+    getTrending    : ()               => request('GET', '/posts/trending'),
+    getActivity    : ()               => request('GET', '/posts/activity'),
     createPost     : (body)           => request('POST', '/posts', body),
     getPost        : (id)             => request('GET', `/posts/${id}`),
     deletePost     : (id)             => request('DELETE', `/posts/${id}`),
@@ -49,6 +52,7 @@ const API = (() => {
     getProfile    : (username)         => request('GET', `/users/${username}`),
     updateProfile : (body)             => request('PUT', '/users/me/profile', body),
     getUserPosts  : (username, page=1) => request('GET', `/users/${username}/posts?page=${page}`),
+    getSuggestions: ()                 => request('GET', '/users/suggestions'),
     followUser    : (username)         => request('POST', `/users/${username}/follow`),
     unfollowUser  : (username)         => request('DELETE', `/users/${username}/follow`),
     getFollowers  : (username)         => request('GET', `/users/${username}/followers`),
