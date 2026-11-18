@@ -82,6 +82,56 @@
   --shadow-glow      : 0 0 20px rgba(101, 117, 232, 0.25);
 }
 
+/* ── Light Mode Color Theme Overrides ────────────────────────── */
+[data-theme="light"] {
+  --bg-main          : #F6F5F9;
+  --bg-secondary     : #FFFFFF;
+  --bg-card          : #FFFFFF;
+  --bg-card-2        : #F0EDF6;
+  --bg-card-hover    : #EAE6F3;
+  --border           : #E3DEEC;
+  --border-light     : #CCC3DE;
+  
+  --text-primary     : #191624;
+  --text-muted       : #5D5673;
+  --text-dim         : #8A83A2;
+  
+  --accent           : #5766E4;
+  --accent-hover     : #4655D1;
+  --accent-2         : #8762F4;
+  --accent-lavender  : #9F8CA0;
+  --accent-warm      : #B8504B;
+  
+  --danger           : #dc2626;
+  --danger-soft      : rgba(220, 38, 38, 0.1);
+  --success          : #16a34a;
+  --success-soft     : rgba(22, 163, 74, 0.1);
+  --like-color       : #dc2626;
+
+  /* Compatibility aliases */
+  --color-accent     : var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-text       : var(--text-primary);
+  --color-text-muted : var(--text-muted);
+  --color-bg         : var(--bg-main);
+  --color-surface    : var(--bg-card);
+  --color-border     : var(--border);
+  
+  /* Gradients */
+  --gradient-subtle  : linear-gradient(135deg, rgba(87, 102, 228, 0.08), rgba(135, 98, 244, 0.08));
+  --gradient-glow    : radial-gradient(circle, rgba(87, 102, 228, 0.1) 0%, transparent 70%);
+
+  /* Shadows tuned for light surfaces */
+  --shadow-sm        : 0 2px 8px rgba(25, 22, 36, 0.06);
+  --shadow-md        : 0 4px 18px rgba(25, 22, 36, 0.08);
+  --shadow-lg        : 0 10px 30px rgba(25, 22, 36, 0.12);
+  --shadow-glow      : 0 0 20px rgba(87, 102, 228, 0.15);
+}
+
+[data-theme="light"] html {
+  color-scheme: light;
+}
+
 html {
   font-size: 16px;
   scroll-behavior: smooth;
@@ -97,6 +147,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
   overflow-x: hidden;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 /* Custom scrollbars */
@@ -199,6 +250,45 @@ h1, h2, h3, h4, h5, h6 {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+.theme-toggle-icon-btn {
+  background: var(--bg-card-2);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin-left: auto;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+
+.theme-toggle-icon-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--bg-card-hover);
+  transform: rotate(15deg);
+}
+
+.theme-toggle-icon-btn svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+}
+
+.theme-toggle-btn {
+  background: none;
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
 }
 
 .sidebar-nav__links {
@@ -1885,7 +1975,8 @@ h1, h2, h3, h4, h5, h6 {
   }
   .sidebar-link__label,
   .sidebar-brand-name,
-  .sidebar-user-card__info {
+  .sidebar-user-card__info,
+  .theme-toggle-icon-btn {
     display: none;
   }
   .sidebar-brand {

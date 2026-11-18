@@ -17,7 +17,8 @@ All existing core capabilities—including user authentication, session persiste
 ### Key Metrics & Verification
 | Metric | Status | Result |
 |---|---|---|
-| **Design System** | Complete | Custom Dark Theme (`#161215` / `#1D1A24` / `#24212D`) |
+| **Design System** | Complete | Adaptive Dual Theme (Dark `#161215` / Light `#F6F5F9`) |
+| **Theme Toggle** | Complete | Seamless Sun/Moon toggle with `localStorage` persistence |
 | **Icon System** | Complete | Scalable Lucide-compatible SVGs replacing emoji chrome |
 | **Desktop Layout** | Complete | 3-Column Grid (Sticky Left Sidebar, Feed, Sticky Right Sidebar) |
 | **Creator Strip** | Complete | Horizontal avatar story/creator discovery strip |
@@ -53,6 +54,16 @@ The interface is built on a refined dark visual palette designed for visual clar
 | `--accent-warm` | `#AF5E59` | Warm coral accent for alerts and character limits |
 | `--like-color` | `#e55353` | Like heart fill and active interaction state |
 | `--success` | `#4ade80` | Success toasts and confirmed actions |
+
+#### Light Mode Tokens (`[data-theme="light"]`)
+When switched to Light Mode, tokens seamlessly invert with soft warm violet undertones:
+- `--bg-main`: `#F6F5F9`
+- `--bg-secondary` & `--bg-card`: `#FFFFFF`
+- `--bg-card-2`: `#F0EDF6`
+- `--border`: `#E3DEEC`
+- `--text-primary`: `#191624`
+- `--text-muted`: `#5D5673`
+- Pre-paint `<script>` in `<head>` ensures zero flash of unstyled theme on page load.
 
 ### 2.2 Gradients & Visual Accents
 - **Signature Gradient (`--gradient`):** `linear-gradient(135deg, #6575E8, #9B7CF6, #B5A2B5)`  

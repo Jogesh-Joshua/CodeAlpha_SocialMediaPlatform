@@ -167,6 +167,28 @@ const ICONS = {
   comment:    '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>',
   share:      '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>',
   trash:      '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>',
+  sun:        '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>',
+  moon:       '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>',
+};
+
+/* ── Theme Manager ─────────────────────────────────────────── */
+const Theme = {
+  get() {
+    return localStorage.getItem('nexus_theme') || 'dark';
+  },
+  set(theme) {
+    localStorage.setItem('nexus_theme', theme);
+    document.documentElement.setAttribute('data-theme', theme);
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', theme === 'light' ? '#F6F5F9' : '#161215');
+    window.dispatchEvent(new CustomEvent('nexus-theme-change', { detail: { theme } }));
+  },
+  toggle() {
+    const next = this.get() === 'dark' ? 'light' : 'dark';
+    this.set(next);
+    toast(next === 'light' ? 'Light mode enabled ☀️' : 'Dark mode enabled 🌙', 'info', 2000);
+    return next;
+  }
 };
 
 /* ── Guest Hero Welcome Banner ─────────────────────────────── */
@@ -838,6 +860,9 @@ function renderSidebarNav(user) {
     <div class="sidebar-brand">
       <div class="sidebar-brand-icon">✦</div>
       <span class="sidebar-brand-name">Nexus</span>
+      <button class="theme-toggle-icon-btn" id="theme-toggle-icon-btn" type="button" title="Toggle light/dark theme" aria-label="Toggle theme">
+        ${Theme.get() === 'dark' ? ICONS.sun : ICONS.moon}
+      </button>
     </div>
     <div class="sidebar-nav__links">
       ${links.map(l => `
@@ -846,6 +871,10 @@ function renderSidebarNav(user) {
           <span class="sidebar-link__label">${escapeHtml(l.label)}</span>
         </a>
       `).join('')}
+      <button class="sidebar-link theme-toggle-btn" id="theme-toggle-nav-btn" type="button" title="Toggle light/dark theme">
+        <span class="sidebar-link__icon">${Theme.get() === 'dark' ? ICONS.sun : ICONS.moon}</span>
+        <span class="sidebar-link__label">${Theme.get() === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+      </button>
     </div>
     ${user ? `
       <div class="sidebar-user-card" id="sidebar-user-card">
@@ -867,7 +896,18 @@ function renderSidebarNav(user) {
     });
   }
 
-  nav.querySelectorAll('.sidebar-link').forEach(link => {
+  // Theme toggle listeners
+  const handleToggle = () => {
+    Theme.toggle();
+    renderSidebarNav(user);
+    if (typeof renderMobileNavState === 'function') {
+      renderMobileNavState(user);
+    }
+  };
+  nav.querySelector('#theme-toggle-icon-btn')?.addEventListener('click', handleToggle);
+  nav.querySelector('#theme-toggle-nav-btn')?.addEventListener('click', handleToggle);
+
+  nav.querySelectorAll('.sidebar-link[data-page]').forEach(link => {
     link.addEventListener('click', (e) => {
       e.preventDefault();
       Router.navigate(link.dataset.page);

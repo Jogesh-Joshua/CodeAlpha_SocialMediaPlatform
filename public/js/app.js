@@ -71,40 +71,61 @@ const Router = (() => {
 })();
 
 function renderMobileNav(user) {
-  if (document.getElementById('mobile-bottom-nav')) return; // already rendered
+  let nav = document.getElementById('mobile-bottom-nav');
+  if (!nav) {
+    nav = document.createElement('nav');
+    nav.className = 'mobile-bottom-nav';
+    nav.id = 'mobile-bottom-nav';
+    document.body.appendChild(nav);
+  }
+
   const homeIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>';
   const exploreIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
   const followingIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
   const profileIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
 
-  const nav = document.createElement('nav');
-  nav.className = 'mobile-bottom-nav';
-  nav.id = 'mobile-bottom-nav';
+  const isDark = (typeof Theme !== 'undefined' ? Theme.get() : 'dark') === 'dark';
+  const themeIcon = isDark ? (typeof ICONS !== 'undefined' ? ICONS.sun : '☀️') : (typeof ICONS !== 'undefined' ? ICONS.moon : '🌙');
+
+  nav.innerHTML = '';
   const items = [
     { icon: homeIcon, label: 'Home', page: 'feed' },
     { icon: exploreIcon, label: 'Explore', page: 'explore' },
+    { icon: themeIcon, label: isDark ? 'Light' : 'Dark', isTheme: true },
     { icon: followingIcon, label: 'Following', page: 'following' },
     { icon: profileIcon, label: 'Profile', page: user ? `profile:${user.username}` : 'login' },
   ];
+
   items.forEach(item => {
     const btn = document.createElement('button');
-    btn.className = 'mobile-nav-btn';
-    btn.dataset.page = item.page;
+    btn.className = `mobile-nav-btn${item.isTheme ? ' mobile-nav-btn--theme' : ''}`;
+    if (item.page) btn.dataset.page = item.page;
     btn.innerHTML = `${item.icon}<span>${item.label}</span>`;
-    btn.addEventListener('click', () => Router.navigate(item.page));
+    if (item.isTheme) {
+      btn.addEventListener('click', () => {
+        if (typeof Theme !== 'undefined') {
+          Theme.toggle();
+        }
+      });
+    } else {
+      btn.addEventListener('click', () => Router.navigate(item.page));
+    }
     nav.appendChild(btn);
   });
-  document.body.appendChild(nav);
 }
 
 function renderMobileNavState(user) {
   const nav = document.getElementById('mobile-bottom-nav');
   if (!nav) return;
-  // Update profile button's page target
-  const profileBtn = nav.querySelector('[data-page^="profile"]');
+  const isDark = (typeof Theme !== 'undefined' ? Theme.get() : 'dark') === 'dark';
+  const themeBtn = nav.querySelector('.mobile-nav-btn--theme');
+  if (themeBtn) {
+    const icon = isDark ? (typeof ICONS !== 'undefined' ? ICONS.sun : '☀️') : (typeof ICONS !== 'undefined' ? ICONS.moon : '🌙');
+    themeBtn.innerHTML = `${icon}<span>${isDark ? 'Light' : 'Dark'}</span>`;
+  }
+  const profileBtn = nav.querySelector('[data-page^="profile"], [data-page="login"]');
   if (profileBtn) {
     profileBtn.dataset.page = user ? `profile:${user.username}` : 'login';
-    // re-wire click
     profileBtn.onclick = () => Router.navigate(profileBtn.dataset.page);
   }
 }
@@ -165,10 +186,22 @@ function renderMobileNavState(user) {
   // Load session from server
   await Auth.init();
 
+  // Initialize theme from storage
+  if (typeof Theme !== 'undefined') {
+    Theme.set(Theme.get());
+  }
+
+  // Sync theme changes across desktop and mobile navs
+  window.addEventListener('nexus-theme-change', () => {
+    renderSidebarNav(Auth.getUser());
+    renderMobileNavState(Auth.getUser());
+  });
+
   // Re-render nav and right sidebar on auth state change
   Auth.onChange((user) => {
     renderTopbar(user);
     renderSidebarNav(user);
+    renderMobileNavState(user);
     renderRightSidebar(user, Router.navigate);
   });
 
@@ -177,9 +210,6 @@ function renderMobileNavState(user) {
   renderSidebarNav(Auth.getUser());
   // Mobile bottom nav (visible only on small screens via CSS)
   renderMobileNav(Auth.getUser());
-  Auth.onChange((user) => {
-    renderMobileNavState(user);
-  });
 
   // Initial route
   const initialPage = pathToPage(window.location.pathname, window.location.search);
